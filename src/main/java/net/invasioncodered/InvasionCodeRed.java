@@ -12,6 +12,7 @@ import net.invasioncodered.config.ConfigGuiFactory;
 import net.minecraftforge.fml.loading.FMLEnvironment;
 
 @Mod(InvasionCodeRed.MODID)
+@Mod.EventBusSubscriber(modid = InvasionCodeRed.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public class InvasionCodeRed {
     public static final String MODID = "invasioncodered";
     public static final Logger LOGGER = LoggerFactory.getLogger(MODID);

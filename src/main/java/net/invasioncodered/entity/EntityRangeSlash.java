@@ -52,7 +52,28 @@ public class EntityRangeSlash extends ThrowableProjectile implements GeoEntity {
     protected void onHitEntity(EntityHitResult p_36757_) {
         Entity entity = p_36757_.getEntity();
         if (this.getOwner() != null && entity != this.getOwner() && this.getOwner() instanceof LivingEntity livingOwner) {
-            entity.hurt(this.damageSources().mobAttack(livingOwner), this.isBig() ? 26 : 12);
+            // 检查目标是否是召唤者的同伴
+            boolean isOwnersFriend = false;
+            
+            // 如果目标是裂刃龙且与本实体有相同拥有者，则不造成伤害
+            if (entity instanceof EntityGashslitDragon dragon && dragon.getOwner() == this.getOwner()) {
+                isOwnersFriend = true;
+            }
+            
+            // 如果目标是另一个斩击并且有相同拥有者，则不造成伤害
+            if (entity instanceof EntityRangeSlash slash && slash.getOwner() == this.getOwner()) {
+                isOwnersFriend = true;
+            }
+            
+            // 如果目标是裂刃帝王且是本实体的拥有者，则不造成伤害
+            if (entity instanceof EntityGashslit gashslit && gashslit == this.getOwner()) {
+                isOwnersFriend = true;
+            }
+            
+            // 只有当目标不是召唤者的同伴时才造成伤害
+            if (!isOwnersFriend) {
+                entity.hurt(this.damageSources().mobAttack(livingOwner), this.isBig() ? 26 : 12);
+            }
         }
     }
 

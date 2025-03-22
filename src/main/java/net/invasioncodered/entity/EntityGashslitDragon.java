@@ -9,6 +9,7 @@ import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -53,6 +54,7 @@ public class EntityGashslitDragon extends Monster implements GeoEntity, RangedAt
     private final AnimatableInstanceCache factory = GeckoLibUtil.createInstanceCache(this);
     private boolean hasLimitedLife;
     private int limitedLifeTicks;
+    private Entity owner;
 
     public EntityGashslitDragon(EntityType<? extends Monster> p_33002_, Level p_33003_) {
         super(p_33002_, p_33003_);
@@ -254,5 +256,13 @@ public class EntityGashslitDragon extends Monster implements GeoEntity, RangedAt
                 }
             }
         }
+    }
+
+    public void setOwner(Entity entity) {
+        this.owner = entity;
+    }
+
+    public Entity getOwner() {
+        return this.owner;
     }
 }

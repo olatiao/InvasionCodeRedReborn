@@ -6,6 +6,7 @@ import net.invasioncodered.config.AbstractBedrockRaider;
 import net.invasioncodered.network.GashslitParticlePacket;
 import net.invasioncodered.InvasionCodeRedNetwork;
 import net.invasioncodered.InvasionCodeRedUtil;
+import net.invasioncodered.init.IronsSpellsCompat;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.invasioncodered.register.InvasionCodeRedSounds;
 import net.invasioncodered.register.InvasionCodeRedEntities;
@@ -42,6 +43,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.raid.Raider;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.fml.ModList;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.core.animation.AnimatableManager;
@@ -51,8 +53,12 @@ import software.bernie.geckolib.core.animation.RawAnimation;
 import software.bernie.geckolib.core.animation.AnimationState;
 import software.bernie.geckolib.core.object.PlayState;
 import software.bernie.geckolib.util.GeckoLibUtil;
+import java.lang.reflect.Method;
 
-public class EntityGashslit extends AbstractBedrockRaider implements GeoEntity {
+/**
+ * 裂刃帝王实体，可以在Iron's Spellbooks模组加载的情况下释放血针法术
+ */
+public class EntityGashslit extends AbstractBedrockRaider implements GeoEntity /* , IMagicEntity */ {
     protected static final RawAnimation WALK = RawAnimation.begin().then("animation.gashslit.walk",
             Animation.LoopType.LOOP);
     protected static final RawAnimation RUN = RawAnimation.begin().then("animation.gashslit.run",
@@ -101,8 +107,17 @@ public class EntityGashslit extends AbstractBedrockRaider implements GeoEntity {
     private final ServerBossEvent bossEvent = (ServerBossEvent) (new ServerBossEvent(this.getDisplayName(),
             BossEvent.BossBarColor.PINK, BossEvent.BossBarOverlay.PROGRESS));
 
+    // 添加BOSS攻击冷却
+    private int attackCooldown = 0;
+
+    // 添加血针法术施放冷却
+    private int bloodNeedlesCooldown = 0;
+
     public EntityGashslit(EntityType<? extends Raider> p_33002_, Level p_33003_) {
         super(p_33002_, p_33003_);
+
+        // 初始化IronsSpellsCompat
+        IronsSpellsCompat.init();
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -195,13 +210,13 @@ public class EntityGashslit extends AbstractBedrockRaider implements GeoEntity {
                         if (this.tickCount % 5 == 0) {
                             if (this.getHealth() <= 300) {
                                 this.phase2RandomAttack();
-                                
+
                                 if (this.tickCount % 15 == 0 && !this.isEventFired()) {
                                     this.phase2ComboAttack();
                                 }
                             } else {
                                 this.randomAttack();
-                                
+
                                 if (this.tickCount % 25 == 0 && !this.isEventFired()) {
                                     this.comboAttack();
                                 }
@@ -345,6 +360,24 @@ public class EntityGashslit extends AbstractBedrockRaider implements GeoEntity {
                 this.removeAllEvents();
             }
         }
+
+        if (this.attackCooldown > 0) {
+            this.attackCooldown--;
+        }
+
+        // 处理血针法术的冷却
+        if (bloodNeedlesCooldown > 0) {
+            bloodNeedlesCooldown--;
+        }
+
+        // 如果Iron's Spellbooks模组已加载且处于二阶段(血量低于300)，则尝试施放血针法术
+        if (IronsSpellsCompat.isIronsSpellsLoaded() && this.getHealth() <= 300 && this.getTarget() != null
+                && bloodNeedlesCooldown <= 0) {
+            if (this.random.nextFloat() <= 0.15f) { // 15%几率触发
+                this.castBloodNeedles();
+                bloodNeedlesCooldown = 60; // 3秒冷却
+            }
+        }
     }
 
     public void randomAttack() {
@@ -474,8 +507,8 @@ public class EntityGashslit extends AbstractBedrockRaider implements GeoEntity {
         this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0.0);
         double d0 = this.getX() - this.getTarget().getX();
         double d2 = this.getZ() - this.getTarget().getZ();
-        double xD = -d0 / (0.06f * this.distanceTo(this.getTarget()));
-        double zD = -d2 / (0.06f * this.distanceTo(this.getTarget()));
+        double xD = -d0 / (0.12f * this.distanceTo(this.getTarget()));
+        double zD = -d2 / (0.12f * this.distanceTo(this.getTarget()));
         this.setDeltaMovement(xD, this.getDeltaMovement().y, zD);
         this.addEvent(new Runnable() {
             @Override
@@ -492,13 +525,15 @@ public class EntityGashslit extends AbstractBedrockRaider implements GeoEntity {
             InvasionCodeRedNetwork
                     .sendToAll(new GashslitParticlePacket(GashslitParticlePacket.ParticleType.DASH_TRAIL, this));
         }
+
+        this.setAttackCooldown(35);
     }
 
     public void phase2dash2start() {
         this.setEventFired(true);
         this.setSkinID(10);
-        this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0.1);
-        this.addEvent(() -> this.phase2dash2(), 10);
+        this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0.19);
+        this.addEvent(() -> this.phase2dash2(), 20);
         if (!this.level().isClientSide()) {
             InvasionCodeRedNetwork
                     .sendToAll(new GashslitParticlePacket(GashslitParticlePacket.ParticleType.DASH_TRAIL, this));
@@ -659,36 +694,11 @@ public class EntityGashslit extends AbstractBedrockRaider implements GeoEntity {
         }, 80);
     }
 
-    public void dash2() {
-        this.setSkinID(9);
-        this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0.0);
-        double d0 = this.getX() - this.getTarget().getX();
-        double d2 = this.getZ() - this.getTarget().getZ();
-        double xD = -d0 / (0.06f * this.distanceTo(this.getTarget()));
-        double zD = -d2 / (0.06f * this.distanceTo(this.getTarget()));
-        this.setDeltaMovement(xD, this.getDeltaMovement().y, zD);
-        this.addEvent(new Runnable() {
-            @Override
-            public void run() {
-                EntityGashslit.this.setSkinID(0);
-                EntityGashslit.this.setEventFired(false);
-                EntityGashslit.this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(EntityGashslit.this.speed);
-            }
-        }, 6);
-        this.playSound(InvasionCodeRedSounds.SLICE_FX1.get());
-        if (!this.level().isClientSide()) {
-            InvasionCodeRedNetwork
-                    .sendToAll(new GashslitParticlePacket(GashslitParticlePacket.ParticleType.DASH_SMOKE, this));
-            InvasionCodeRedNetwork
-                    .sendToAll(new GashslitParticlePacket(GashslitParticlePacket.ParticleType.DASH_TRAIL, this));
-        }
-    }
-
     public void dash2start() {
         this.setEventFired(true);
         this.setSkinID(10);
         this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0.19);
-        this.addEvent(() -> this.dash2(), 10);
+        this.addEvent(() -> this.dash2(), 20);
         if (!this.level().isClientSide()) {
             InvasionCodeRedNetwork
                     .sendToAll(new GashslitParticlePacket(GashslitParticlePacket.ParticleType.DASH_TRAIL, this));
@@ -794,11 +804,12 @@ public class EntityGashslit extends AbstractBedrockRaider implements GeoEntity {
     }
 
     @Override
-    public boolean hurt(DamageSource p_21016_, float p_21017_) {
-        if (this.getSkinID() == 4 && !p_21016_.isCreativePlayer()) {
+    public boolean hurt(DamageSource source, float amount) {
+        if (this.getSkinID() == 4 && this.random.nextFloat() <= 0.75) {
             return false;
         }
-        return super.hurt(p_21016_, p_21017_);
+
+        return super.hurt(source, amount);
     }
 
     @Override
@@ -855,7 +866,6 @@ public class EntityGashslit extends AbstractBedrockRaider implements GeoEntity {
     }
 
     protected PlayState moveController(AnimationState<EntityGashslit> event) {
-        // 记录详细的动画状态信息
         boolean isOnGround = this.onGround();
         int skinID = this.getSkinID();
         boolean isAlive = this.isAlive();
@@ -871,11 +881,8 @@ public class EntityGashslit extends AbstractBedrockRaider implements GeoEntity {
                     if (speed >= 0.98) {
                         event.getController().setAnimation(RUN);
                     } else {
-                        // 动态调整走路动画速度，根据实际移动速度
-                        // 基准速度为1.5，但如果实际移动速度较高，则提高动画速度
                         double animationSpeed = 1.5;
                         if (moveSpeed > 0.1) {
-                            // 根据实际移动速度调整动画速率，最高可达2.5倍速
                             animationSpeed = 1.5 + (moveSpeed * 10.0);
                             animationSpeed = Math.min(animationSpeed, 2.5);
                         }
@@ -887,7 +894,6 @@ public class EntityGashslit extends AbstractBedrockRaider implements GeoEntity {
                 if (this.getHealth() <= 300) {
                     event.getController().setAnimation(RAGE_POSE);
                 } else {
-                    // 静止时使用标准速度的走路动画作为待机姿势
                     event.getController().setAnimationSpeed(1.5);
                     event.getController().setAnimation(WALK);
                 }
@@ -952,19 +958,15 @@ public class EntityGashslit extends AbstractBedrockRaider implements GeoEntity {
 
     public void comboAttack() {
         if (this.getTarget() != null && !this.isEventFired() && this.distanceTo(this.getTarget()) > 8.0F) {
-            // 50%几率使用组合技
             if (InvasionCodeRedUtil.percent(0.5)) {
-                // 先后退
                 this.stepback();
-                
-                // 然后在回调中添加冲刺和召唤
+
                 this.addEvent(new Runnable() {
                     @Override
                     public void run() {
                         if (EntityGashslit.this.isAlive() && EntityGashslit.this.getTarget() != null) {
                             EntityGashslit.this.dash2start();
-                            
-                            // 冲刺后有20%几率召唤小龙
+
                             if (InvasionCodeRedUtil.percent(0.2) && EntityGashslit.this.summonCap.size() < 6) {
                                 EntityGashslit.this.addEvent(() -> EntityGashslit.this.summonmode(), 20);
                             }
@@ -974,15 +976,12 @@ public class EntityGashslit extends AbstractBedrockRaider implements GeoEntity {
             }
         }
     }
-    
+
     public void phase2ComboAttack() {
         if (this.getTarget() != null && !this.isEventFired() && this.distanceTo(this.getTarget()) > 7.0F) {
-            // 65%几率使用组合技
             if (InvasionCodeRedUtil.percent(0.65)) {
-                // 先冲刺
                 this.phase2dash2start();
-                
-                // 然后在回调中添加另一个攻击
+
                 this.addEvent(new Runnable() {
                     @Override
                     public void run() {
@@ -996,6 +995,82 @@ public class EntityGashslit extends AbstractBedrockRaider implements GeoEntity {
                     }
                 }, 20);
             }
+        }
+    }
+
+    public void setAttackCooldown(int cooldown) {
+        this.attackCooldown = cooldown;
+    }
+
+    public int getAttackCooldown() {
+        return this.attackCooldown;
+    }
+
+    public void dash2() {
+        this.setSkinID(9);
+        this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0.0);
+        double d0 = this.getX() - this.getTarget().getX();
+        double d2 = this.getZ() - this.getTarget().getZ();
+        double xD = -d0 / (0.12f * this.distanceTo(this.getTarget()));
+        double zD = -d2 / (0.12f * this.distanceTo(this.getTarget()));
+        this.setDeltaMovement(xD, this.getDeltaMovement().y, zD);
+        this.addEvent(new Runnable() {
+            @Override
+            public void run() {
+                EntityGashslit.this.setSkinID(0);
+                EntityGashslit.this.setEventFired(false);
+                EntityGashslit.this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(EntityGashslit.this.speed);
+            }
+        }, 6);
+        this.playSound(InvasionCodeRedSounds.SLICE_FX1.get());
+        if (!this.level().isClientSide()) {
+            InvasionCodeRedNetwork
+                    .sendToAll(new GashslitParticlePacket(GashslitParticlePacket.ParticleType.DASH_SMOKE, this));
+            InvasionCodeRedNetwork
+                    .sendToAll(new GashslitParticlePacket(GashslitParticlePacket.ParticleType.DASH_TRAIL, this));
+        }
+
+        this.setAttackCooldown(35);
+    }
+
+    /**
+     * 尝试施放血针法术
+     * 使用简单直接的方法调用
+     */
+    private void castBloodNeedles() {
+        System.out.println("开始尝试施放法术...");
+
+        if (!IronsSpellsCompat.isIronsSpellsLoaded()) {
+            System.out.println("无法施放法术：Iron's Spellbooks模组未加载");
+            return;
+        }
+
+        if (this.level().isClientSide()) {
+            System.out.println("无法施放法术：客户端不能施法");
+            return;
+        }
+
+        if (this.getTarget() == null) {
+            System.out.println("无法施放法术：没有目标");
+            return;
+        }
+
+        System.out.println("施法前置条件检查通过，调用简化版施法方法...");
+
+        try {
+            LivingEntity target = this.getTarget();
+            // 尝试以目标实体施放不同类型的法术
+            boolean success = IronsSpellsCompat.castSpell(this, target, this.level(), "traveloptics:halberd_horizon",
+                    6);
+            // 记录结果
+            if (success) {
+                System.out.println("BOSS成功施放了法术！");
+            } else {
+                System.out.println("BOSS尝试施放法术，但失败了");
+            }
+        } catch (Exception e) {
+            System.err.println("施放法术时出现异常：" + e.getMessage());
+            e.printStackTrace();
         }
     }
 }
