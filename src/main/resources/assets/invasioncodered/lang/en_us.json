@@ -1,0 +1,14 @@
+{
+   "entity.invasioncodered.gashslit": "§l§4Gashslit",
+   "entity.invasioncodered.gashslit_dragon": "Gashslit Dragon",
+   "item.invasioncodered.gashslit_spawn_egg": "§l§4Gashslit§r Spawn Egg",
+   
+   "itemGroup.invasioncodered.invasion_tab": "Invasion Code Red",
+   
+   "config.invasioncodered.title": "Invasion Code Red - Settings",
+   "config.invasioncodered.gashslitInRaid": "Gashslit Raid Spawning",
+   "config.invasioncodered.gashslitSpawnChance": "Gashslit Spawn Chance",
+   
+   "message.invasioncodered.spawn": "A Gashslit has appeared!",
+   "message.invasioncodered.death": "The Gashslit has been defeated!"
+}

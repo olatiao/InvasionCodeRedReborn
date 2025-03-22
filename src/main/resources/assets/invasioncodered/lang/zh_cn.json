@@ -1,0 +1,14 @@
+{
+   "entity.invasioncodered.gashslit": "§l§4裂刃帝王",
+   "entity.invasioncodered.gashslit_dragon": "裂刃王龙",
+   "item.invasioncodered.gashslit_spawn_egg": "§l§4裂刃帝王§r刷怪蛋",
+   
+   "itemGroup.invasioncodered.invasion_tab": "裂刃帝国",
+   
+   "config.invasioncodered.title": "裂刃帝国 - 设置",
+   "config.invasioncodered.gashslitInRaid": "裂刃帝王袭击生成",
+   "config.invasioncodered.gashslitSpawnChance": "裂刃帝王生成概率",
+   
+   "message.invasioncodered.spawn": "一只裂刃帝王出现了！",
+   "message.invasioncodered.death": "裂刃帝王被击败了！"
+}
