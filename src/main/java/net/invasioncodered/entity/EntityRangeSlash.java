@@ -72,7 +72,7 @@ public class EntityRangeSlash extends ThrowableProjectile implements GeoEntity {
             
             // 只有当目标不是召唤者的同伴时才造成伤害
             if (!isOwnersFriend) {
-                entity.hurt(this.damageSources().mobAttack(livingOwner), this.isBig() ? 26 : 12);
+                entity.hurt(this.damageSources().mobAttack(livingOwner), this.isBig() ? 55 : 26);
             }
         }
     }
